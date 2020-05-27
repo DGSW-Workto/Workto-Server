@@ -6,6 +6,9 @@ var crypto = require('crypto');
 var async = require('async');
 var jwt = require('jsonwebtoken');
 var config = require('../config/config');
+var token = require('./token');
+
+
 
 var router = express.Router();
 
@@ -20,11 +23,11 @@ function Makehash(password){
   })
 }
 
-function MakeJWT(nickname){
+function MakeJWT(name){
   return new Promise(function(res,rej){
     jwt.sign(
       {
-        "nickname": nickname
+        "name": name
       },
       config.secret,
       {
@@ -37,22 +40,6 @@ function MakeJWT(nickname){
     )
   })
 }
-
-
-
-/* GET home page. */
-router.get('/', function(req, res) {
-  res.status(200).json(
-    {
-      "" : true
-    }
-  );
-  res.status(200).json(
-    {
-      "" : false
-    }
-  )
-});
 
 router.post('/join', async function(req,res) {
   const body = req.body;
@@ -85,13 +72,7 @@ router.post('/join', async function(req,res) {
       }
     )
     return 0;
-  }else if(body.image === undefined) {
-    res.status(200).json(
-      {
-        "400" : "no image"
-      }
-    )
-    return 0;
+
   }else if(body.skills === undefined) {
     res.status(200).json(
       {
@@ -117,7 +98,6 @@ router.post('/join', async function(req,res) {
     "hash": data[0],
     "name": body.name,
     "nickname": body.nickname,
-    "image": body.image,
     "skills": body.skills,
     "email": body.email,
   }
@@ -198,7 +178,7 @@ router.post('/login', async function(req, res) {
     } else {
       crypto.pbkdf2(pwd, rows[0].salt, 163437, 66, 'sha512',  async(err, key) => {
         if(rows[0].hash === key.toString('base64')){
-            const token = await MakeJWT(rows[0].nickname);
+            const token = await MakeJWT(rows[0].name);
             res.status(200).json(
               {
                 "200": "login success",
@@ -215,13 +195,13 @@ router.post('/login', async function(req, res) {
       })
     } 
   })
-
-  // res.status(200).json(
-    
-  //     "id" : id,
-  //     "pwd" : pwd
-  //   }
-  // );
 });
+
+router.post('/token',  async function (req, res, next){
+  const message = await token.verify(req,res,next);
+  res.status(200).json({
+    "200": message
+  })
+})
 
 module.exports = router;
