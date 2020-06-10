@@ -23,11 +23,11 @@ function Makehash(password){
   })
 }
 
-function MakeJWT(name){
+function MakeJWT(id){
   return new Promise(function(res,rej){
     jwt.sign(
       {
-        "name": name
+        "id": id
       },
       config.secret,
       {
@@ -43,32 +43,28 @@ function MakeJWT(name){
 
 router.post('/join', async function(req,res) {
   const body = req.body;
-
   if(body.password === undefined) {
     res.status(200).json(
       {
-        "400" : "no password"
+        "status": "400",
+        "message" : "no password"
       }
     )
     return 0;
   }else if(body.member_id === undefined) {
     res.status(200).json(
       {
-        "400" : "no member_id"
+        "status": "400",
+        "message" : "no member_id"
       }
     )
     return 0;
-  }else if(body.name === undefined) {
-    res.status(200).json(
-      {
-        "400" : "no name"
-      }
-    )
-    return 0;
+  
   }else if(body.nickname === undefined) {
     res.status(200).json(
       {
-        "400" : "no nickname"
+        "status": "400",
+        "message" : "no nickname"
       }
     )
     return 0;
@@ -76,18 +72,21 @@ router.post('/join', async function(req,res) {
   }else if(body.skills === undefined) {
     res.status(200).json(
       {
-        "400" : "no skills"
+        "status": "400",
+        "message" : "no skills"
       }
     )
     return 0;
   }else if(body.email === undefined) {
     res.status(200).json(
       {
-        "400" : "no email"
+        "status": "400",
+        "message" : "no email"
       }
     )
     return 0;
   }
+
 
   var data;
   data  =  await Makehash(body.password);
@@ -96,10 +95,8 @@ router.post('/join', async function(req,res) {
     "member_id": body.member_id,
     "salt": data[1],
     "hash": data[0],
-    "name": body.name,
     "nickname": body.nickname,
-    "skills": body.skills,
-    "email": body.email,
+    "email": body.email
   }
 
   connection.query('INSERT INTO member SET ?', users, function (err, rows, fields) {
@@ -107,37 +104,61 @@ router.post('/join', async function(req,res) {
       if(err.sqlMessage === `Duplicate entry '${users.member_id}' for key 'PRIMARY'`) {
         res.status(200).json(
           {
-            "400" : "ID error"
+            "status": "400",
+            "message" : "ID already exists"
           }
         )
       } else if (err.sqlMessage === `Duplicate entry '${users.email}' for key 'email_UNIQUE'`) {
           res.status(200).json(
             {
-              "400" : "email error"
+              "status": "400",
+              "message" : "email already exists"
             }
           )
         } else if (err.sqlMessage === `Duplicate entry '${users.nickname}' for key 'nickname_UNIQUE'`){
             res.status(200).json(
               {
-                "400" : "nickname error"
+                "status": "400",
+                "message" : "nickname already exists"
               }
             )
           } else {
               res.status(200).json(
                 { 
-                  "400" : "unknown error"
+                  "status": "400",
+                  "message" : "unknown error",
+                  "sqlMessage": err.sqlMessage
                 }
               )
               return 0;
             }
     } else {
+        for(let i=0; i < body.skills.length; i++){
+          connection.query('Select * from skills ', function (err,rows,fields){
+            data = rows[0];  
+            queryData = {"member_id": body.member_id,
+                        "skill_number": data[body.skills[i]]};
+            connection.query('Insert INTO my_skills Set ?', queryData, function(err,rows,fields){
+              if(err){
+                res.status(200).json(
+                  {
+                    "status": "400",
+                    "message": err
+                  }
+                )
+              }
+            })
+          })
+        }
       res.status(200).json(
         {
-          "200" : "register success"
+          "status": "200",
+          "message" : "register success"
         }
       )
     }
   })
+
 })  
 
 
@@ -148,6 +169,7 @@ router.post('/login', async function(req, res) {
   if(id === undefined || id === ""){
     res.status(200).json(
       {
+        "status": 400,
         "message" : "id is empty"
       }
     )
@@ -157,6 +179,7 @@ router.post('/login', async function(req, res) {
   if(pwd === undefined || pwd === ""){
     res.status(200).json(
       {
+        "status": 400,
         "message" : "pwd is empty"
       }
     )
@@ -168,27 +191,37 @@ router.post('/login', async function(req, res) {
       if(err.sqlMessage === `Unknown column '${id}' in 'where clause'`){
         res.status(200).json(
           {
-            "400" : "id error"
+            "status": "400",
+            "message" : "id error"
           }
         )
         return 0;
       } else {
-          console.log(err);
+          res.status(200).json(
+            {
+              "status": "400",
+              "message": err
+            }
+          );
         }
     } else {
       crypto.pbkdf2(pwd, rows[0].salt, 163437, 66, 'sha512',  async(err, key) => {
         if(rows[0].hash === key.toString('base64')){
-            const token = await MakeJWT(rows[0].name);
+            const token = await MakeJWT(rows[0].member_id);
             res.status(200).json(
               {
-                "200": "login success",
-                "token": token
+                "status": "200",
+                "message": "login success",
+                "data":{
+                  "token": token 
+                }
               }
             )
         } else{
           res.status(200).json(
             {
-              "400": "can't match"
+              "status": "400",
+              "message": "can't match password"
             }
           )
         }
@@ -197,11 +230,20 @@ router.post('/login', async function(req, res) {
   })
 });
 
-router.post('/token',  async function (req, res, next){
+router.get('/token',  async function (req, res, next){
   const message = await token.verify(req,res,next);
-  res.status(200).json({
-    "200": message
-  })
+
+  if(typeof(message) === typeof({})){
+    res.status(200).json({
+      "status": "200",
+      "data": message 
+    })
+  } else {
+    res.status(200).json({
+      "status": "400",
+      "message": message
+    })
+  }
 })
 
 module.exports = router;
