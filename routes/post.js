@@ -227,7 +227,7 @@ router.get('/detail', async function(req,res){
                             res.status(200).json({
                                 "status" : "200",
                                 "message": "successly loaded",
-                                "data": [data,rows[0]]
+                                "data": [{"post" : data}, {"images": rows[0]}]
                             })
                         }
                     })
@@ -262,7 +262,7 @@ router.get('/detail', async function(req,res){
                                     res.status(200).json({
                                         "status" : "200",
                                         "message": "successly loaded",
-                                        "data": [data,image]
+                                        "data": [{"posts" : data}, {"images": image}]
                                     })
                                 }
                             }
@@ -373,7 +373,7 @@ router.get('/list', async function(req,res){
                                     res.status(200).json({
                                         "status" : "200",
                                         "message": "successly loaded",
-                                        "data": [data,image]
+                                        "data": [{"posts" : data}, {"images": image}]
                                     })
                                 }
                             }

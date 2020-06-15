@@ -165,7 +165,6 @@ router.post('/join', async function(req,res) {
 router.post('/login', async function(req, res) {
   const id = req.body.id;
   const pwd = req.body.pwd;
-
   if(id === undefined || id === ""){
     res.status(200).json(
       {
@@ -204,6 +203,11 @@ router.post('/login', async function(req, res) {
             }
           );
         }
+    } else if(rows[0]===undefined){
+      res.status(200).json({
+        "status": "400",
+        "message": "don't macth id or pwd"
+      })
     } else {
       crypto.pbkdf2(pwd, rows[0].salt, 163437, 66, 'sha512',  async(err, key) => {
         if(rows[0].hash === key.toString('base64')){
